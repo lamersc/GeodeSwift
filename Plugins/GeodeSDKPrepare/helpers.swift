@@ -35,24 +35,17 @@ enum PluginError: Error {
     case missingWindowsSupport(msg: String)
 }
 
-public func run(executableURL: URL, arguments: [String], executeInDirectory: URL? = nil) throws
-    -> String
-{
+public func run(executableURL: URL, arguments: [String], executeInDirectory: URL? = nil) throws {
     let process = Process()
+    process.environment = ProcessInfo.processInfo.environment
     if let executeInDirectory {
         process.currentDirectoryURL = executeInDirectory
     }
     process.executableURL = executableURL
     process.arguments = arguments
 
-    let stdoutPipe = Pipe()
-    process.standardOutput = stdoutPipe
-
     try process.run()
     process.waitUntilExit()
-
-    let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-    let output = String(data: stdoutData, encoding: .utf8) ?? ""
 
     guard process.terminationStatus == 0 else {
         throw PluginError.processExitedWithError(
@@ -60,19 +53,18 @@ public func run(executableURL: URL, arguments: [String], executeInDirectory: URL
             code: process.terminationStatus
         )
     }
-
-    return output
 }
 
 // needed to implement my own version of `context.tool`, as for whatever reason it doesn't
 // `context.tool` can't find anything even with disable sandbox enabled
 public func findTool(named name: String) throws -> URL? {
     let fileSystem = FileManager.default
-
     let pathString: String = ProcessInfo.processInfo.environment["PATH"]!
     #if os(Windows)
+        let pathSeparator: Character = "\\"
         let pathVars = pathString.components(separatedBy: ";")
     #else
+        let pathSeparator: Character = "/"
         let pathVars = pathString.components(separatedBy: ":")
     #endif
     for path in pathVars {
@@ -83,8 +75,9 @@ public func findTool(named name: String) throws -> URL? {
             continue
         }
         for fileName in directoryContents {
+            let lastSeparatorIdx = fileName.lastIndex(of: pathSeparator) ?? fileName.startIndex
             let dotSepLastIdx = fileName.lastIndex(of: ".") ?? fileName.endIndex
-            if fileName[..<dotSepLastIdx].hasSuffix(name) {
+            if fileName[lastSeparatorIdx..<dotSepLastIdx] == name {
                 let toolPath = URL(fileURLWithPath: path).appendingPathComponent(fileName)
                 return toolPath
             }

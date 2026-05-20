@@ -16,7 +16,14 @@ struct GeodeSDKPrepare: BuildToolPlugin {
         target: Target
     ) throws -> [Command] {
         let pluginRootURL = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+        let pluginAssetsURL = pluginRootURL.appending(component: "assets")
         let packageRootURL = context.package.directoryURL
+        let buildURL = packageRootURL.appending(component: ".geode-swift")
+
+        let geodeAlreadyConfigured = fileManager.fileExists(atPath: buildURL.path)
+        if geodeAlreadyConfigured {
+            return []
+        }
 
         guard let gitURL = try findTool(named: "git") else {
             errorMessage("Could not locate `git` command on your system.")
@@ -31,20 +38,36 @@ struct GeodeSDKPrepare: BuildToolPlugin {
             return []
         }
 
-        // prepare geode swift directories
-        let buildURL = packageRootURL.appending(components: ".geode-swift")
-        try fileManager.removeItem(at: buildURL)
-        try fileManager.createDirectory(at: buildURL, withIntermediateDirectories: false)
-        //Diagnostics.error("\(ProcessInfo.processInfo.environment)")
-        //ProcessInfo.processInfo.environment
-        // let toolURLs = [
-        //     "git": try context.tool(named: "git").url,
-        //     "cmake": try context.tool(named: "cmake").url,
-        //     "geode": try context.tool(named: "geode").url,
-        // ]
+        // prepare geode swift build directory and relevant paths
+        let geodeSDKArtifactsURL = buildURL.appending(component: "geode-sdk")
+        try fileManager.createDirectory(at: geodeSDKArtifactsURL, withIntermediateDirectories: true)
 
-        // fileManager.createFile(atPath: dummyCMakeURL.path, contents: nil)
-        // print("Root: \(packageRootURL)")
+        // build geode-sdk using template to get static lib
+        let templateCMakeURL = pluginAssetsURL.appending(components: "CMakeLists.txt")
+        let targetCMakeURL = geodeSDKArtifactsURL.appending(component: "CMakeLists.txt")
+        try fileManager.copyItem(at: templateCMakeURL, to: targetCMakeURL)
+
+        let templateModJsonURL = pluginAssetsURL.appending(components: "mod.json")
+        let targetModJsonURL = geodeSDKArtifactsURL.appending(component: "mod.json")
+        try fileManager.copyItem(at: templateModJsonURL, to: targetModJsonURL)
+
+        try run(
+            executableURL: cmakeURL,
+            arguments: [
+                "-B", ".",
+                "-G", "Ninja",
+            ],
+            executeInDirectory: geodeSDKArtifactsURL
+        )
+
+        try run(
+            executableURL: cmakeURL,
+            arguments: [
+                "--build", geodeSDKArtifactsURL.path,
+            ],
+            executeInDirectory: geodeSDKArtifactsURL
+        )
+
         return []
 
     }
