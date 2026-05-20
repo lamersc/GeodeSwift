@@ -24,7 +24,8 @@ let package = Package(
         ),
         .plugin(
             name: "GeodeSDKPrepare",
-            capability: .buildTool()
+            capability: .buildTool(),
+            packageAccess: true
         ),
     ],
     swiftLanguageModes: [.v6]
