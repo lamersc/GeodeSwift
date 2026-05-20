@@ -19,7 +19,7 @@ struct GeodeSDKPrepare: BuildToolPlugin {
         let packageRootURL = context.package.directoryURL
         let number = Int.random(in: 0..<100000)
         let dummyCMakeURL = packageRootURL.appending(components: "Package.swift")
-        fileManager.removeItem(at: dummyCMakeURL)
+        try fileManager.removeItem(at: dummyCMakeURL)
         // fileManager.createFile(atPath: dummyCMakeURL.path, contents: nil)
         // print("Root: \(packageRootURL)")
         return []
