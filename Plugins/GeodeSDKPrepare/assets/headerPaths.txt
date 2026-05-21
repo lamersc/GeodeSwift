@@ -1,0 +1,13 @@
+@{GEODE_SDK}/loader/include
+@{GEODE_SDK}/loader/include/Geode/cocos/include
+@{GEODE_SDK}/loader/include/Geode/cocos/extensions
+@{GEODE_SDK}/loader/include/Geode/fmod
+@{BUILD_DIR}/bindings/bindings
+${CPM_PACKAGE_bindings_SOURCE_DIR}/bindings/include
+${CPM_PACKAGE_result_SOURCE_DIR}/include
+${CPM_PACKAGE_json_SOURCE_DIR}/include
+${CPM_PACKAGE_nontype_functional_SOURCE_DIR}/include
+${CPM_PACKAGE_fmt_SOURCE_DIR}/include
+${CPM_PACKAGE_asp2_SOURCE_DIR}/include
+${CPM_PACKAGE_arc_SOURCE_DIR}/include
+${CPM_PACKAGE_TulipHook_SOURCE_DIR}/include

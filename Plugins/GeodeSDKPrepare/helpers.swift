@@ -85,3 +85,24 @@ public func findTool(named name: String) throws -> URL? {
     }
     return nil
 }
+
+public struct CMakeValue {
+    let type: Substring
+    let value: Substring?
+}
+public func parseCMakeCache(contents: String) throws -> [Substring: CMakeValue] {
+    let commentPattern = try Regex(#"^[\s]*(//|#)"#)
+    let keyTypeValuePattern = try Regex(#"^(.+):(.+)=(.*)$"#)
+
+    var cmakeKeyValuePairs: [Substring: CMakeValue] = [:]
+    contents.enumerateLines(invoking: { line, stop in
+        if !line.starts(with: commentPattern) {
+            if let match = line.firstMatch(of: keyTypeValuePattern) {
+                cmakeKeyValuePairs[match[1].substring!] = CMakeValue(
+                    type: match[2].substring!, value: match[3].substring)
+            }
+        }
+    })
+
+    return cmakeKeyValuePairs
+}

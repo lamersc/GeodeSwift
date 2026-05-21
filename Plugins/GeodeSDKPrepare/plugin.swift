@@ -10,6 +10,7 @@ enum GeodeSDKPrepareError: Error {
 struct GeodeSDKPrepare: BuildToolPlugin {
     let fileManager = FileManager.default
     let dummyCMakeName = "CMakeLists.txt"
+    var headerPathReplacements = {}
 
     func createBuildCommands(
         context: PluginContext,
@@ -37,6 +38,9 @@ struct GeodeSDKPrepare: BuildToolPlugin {
             errorMessage("Could not locate `geode` command on your system.")
             return []
         }
+
+        let installedGeodeSDKURL = URL(
+            fileURLWithPath: ProcessInfo.processInfo.environment["GEODE_SDK"]!)
 
         // prepare geode swift build directory and relevant paths
         let geodeSDKArtifactsURL = buildURL.appending(component: "geode-sdk")
@@ -67,6 +71,39 @@ struct GeodeSDKPrepare: BuildToolPlugin {
             ],
             executeInDirectory: geodeSDKArtifactsURL
         )
+
+        // cmake cache now contains cpm package paths for resolving where necessary headers are
+        let cmakeCacheURL = geodeSDKArtifactsURL.appending(path: "CMakeCache.txt")
+        let cmakeCacheContents = try String(contentsOf: cmakeCacheURL)
+        let cmakeKeyValuePairs = try parseCMakeCache(contents: cmakeCacheContents)
+        let CPM_PACKAGE_bindings_SOURCE_DIR = cmakeKeyValuePairs["CPM_PACKAGE_bindings_SOURCE_DIR"]!
+        print("\(CPM_PACKAGE_bindings_SOURCE_DIR)")
+
+        // now we can resolve all header paths
+        let headerPathsListURL = pluginAssetsURL.appending(component: "headerPaths.txt")
+        let headerPathsContents = try String(contentsOf: headerPathsListURL)
+
+        let builtinResolvables = [
+            "GEODE_SDK": installedGeodeSDKURL.path,
+            "BUILD_DIR": geodeSDKArtifactsURL.path,
+        ]
+        let builtinReplacePattern = try Regex(#"@{(.+)}"#)
+        let cmakeReplacePattern = try Regex(#"\${(.+)}"#)
+        var resolvedHeaders: [String] = []
+        headerPathsContents.enumerateLines(invoking: { line, stop in
+            var cleanedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let match = cleanedLine.firstMatch(of: builtinReplacePattern) {
+                cleanedLine.replace(
+                    builtinReplacePattern,
+                    with: builtinResolvables[String(match[1].substring!)] ?? "")
+            }
+            if let match = cleanedLine.firstMatch(of: cmakeReplacePattern) {
+                cleanedLine.replace(
+                    cmakeReplacePattern, with: cmakeKeyValuePairs[match[1].substring!]!.value!)
+            }
+            resolvedHeaders.append(cleanedLine)
+        })
+        print("**headers**: \(resolvedHeaders)")
 
         return []
 
